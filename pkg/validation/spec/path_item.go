@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 
 	"github.com/go-openapi/swag"
+	"k8s.io/kube-openapi/pkg/jsonstream"
 )
 
 // PathItemProps the path item specific properties
@@ -53,6 +54,24 @@ func (p *PathItem) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	return json.Unmarshal(data, &p.PathItemProps)
+}
+
+// UnmarshalJSON hydrates this items instance with the data from JSON
+func (p *PathItem) UnmarshalJSONStream(data *jsonstream.Decoder) error {
+	var opts jsonstream.UnmarshalOptions
+	opts.UnknownFields = p.VendorExtensible.ParseUnknownField
+	props := struct {
+		Refable
+		PathItemProps
+	}{}
+	if err := opts.UnmarshalStream(data, &props); err != nil {
+		return err
+	}
+
+	p.Refable = props.Refable
+	p.PathItemProps = props.PathItemProps
+
+	return nil
 }
 
 // MarshalJSON converts this items object to JSON

@@ -66,9 +66,12 @@ func (s *SecurityScheme) UnmarshalJSON(data []byte) error {
 
 // UnmarshalJSON marshal this from JSON
 func (s *SecurityScheme) UnmarshalJSONStream(data *jsonstream.Decoder) error {
-	if err := jsonstream.UnmarshalStream(data, &s.SecuritySchemeProps); err != nil {
+	var opt jsonstream.UnmarshalOptions
+	opt.UnknownFields = s.VendorExtensible.ParseUnknownField
+
+	if err := opt.UnmarshalStream(data, &s.SecuritySchemeProps); err != nil {
 		return err
 	}
-	// return json.Unmarshal(data, &s.VendorExtensible)
+
 	return nil
 }

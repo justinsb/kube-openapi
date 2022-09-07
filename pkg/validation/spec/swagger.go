@@ -61,12 +61,14 @@ func (s *Swagger) UnmarshalJSON(data []byte) error {
 // UnmarshalJSON unmarshals a swagger spec from json
 func (s *Swagger) UnmarshalJSONStream(data *jsonstream.Decoder) error {
 	var sw Swagger
-	if err := jsonstream.UnmarshalStream(data, &sw.SwaggerProps); err != nil {
+
+	var opt jsonstream.UnmarshalOptions
+	opt.UnknownFields = sw.VendorExtensible.ParseUnknownField
+
+	if err := opt.UnmarshalStream(data, &sw.SwaggerProps); err != nil {
 		return err
 	}
-	// if err := jsonstream.Unmarshal(data, &sw.VendorExtensible); err != nil {
-	// 	return err
-	// }
+
 	*s = sw
 	return nil
 }

@@ -61,9 +61,12 @@ func (t *Tag) UnmarshalJSON(data []byte) error {
 
 // UnmarshalJSON marshal this from JSON
 func (t *Tag) UnmarshalJSONStream(data *jsonstream.Decoder) error {
-	if err := jsonstream.UnmarshalStream(data, &t.TagProps); err != nil {
+	var opt jsonstream.UnmarshalOptions
+	opt.UnknownFields = t.VendorExtensible.ParseUnknownField
+
+	if err := opt.UnmarshalStream(data, &t.TagProps); err != nil {
 		return err
 	}
-	// return json.Unmarshal(data, &t.VendorExtensible)
+
 	return nil
 }

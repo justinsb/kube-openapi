@@ -1,7 +1,6 @@
 package jsonstream
 
 import (
-	"bytes"
 	"fmt"
 	"reflect"
 	"strings"
@@ -27,8 +26,8 @@ type messageType interface {
 type structMessageType struct {
 	reflectType reflect.Type
 	path        string
-	// fields      map[string]*structField
-	fields []*structField
+	fields      map[string]*structField
+	// fields []*structField
 }
 
 type structField struct {
@@ -113,7 +112,6 @@ func (r *typeRegistry) buildValueParser(t reflect.Type, path string) (valueParse
 
 	switch t.Kind() {
 	case reflect.Struct:
-
 		return r.buildStructMessageType(t, path)
 
 	case reflect.Map:
@@ -182,7 +180,7 @@ func (r *typeRegistry) buildStructMessageType(t reflect.Type, path string) (mess
 	ret := &structMessageType{
 		reflectType: t,
 		path:        path,
-		// fields:      make(map[string]*structField, t.NumField()),
+		fields:      make(map[string]*structField, t.NumField()),
 	}
 	var addFields func(t reflect.Type, path string, parentFieldPath []int) error
 	addFields = func(t reflect.Type, path string, parentFieldPath []int) error {
@@ -227,13 +225,13 @@ func (r *typeRegistry) buildStructMessageType(t reflect.Type, path string) (mess
 				return err
 			}
 
-			ret.fields = append(ret.fields, &structField{
+			ret.fields[jsonName] = &structField{
 				name:      jsonName,
 				nameBytes: []byte(jsonName),
 				field:     field,
 				fieldPath: fieldPath,
 				parser:    parser,
-			})
+			}
 		}
 		return nil
 	}
@@ -264,7 +262,7 @@ func (p *structMessageType) unmarshalInto(v reflect.Value, d decoder) error {
 		if err != nil {
 			return err
 		}
-		var name []byte
+		var name string
 		switch tok.Kind() {
 		default:
 			return d.unexpectedTokenError(tok, p.path, "expected object close or name")
@@ -285,15 +283,15 @@ func (p *structMessageType) unmarshalInto(v reflect.Value, d decoder) error {
 		// }
 
 		// Get the FieldDescriptor.
-		var fd *structField
-		for _, v := range p.fields {
-			if bytes.Equal(v.nameBytes, name) {
-				fd = v
-				// klog.Infof("found field %v %v", fd.name, string(name))
-			}
-		}
+		// var fd *structField
+		// for _, v := range p.fields {
+		// 	if bytes.Equal(v.nameBytes, name) {
+		// 		fd = v
+		// 		// klog.Infof("found field %v %v", fd.name, string(name))
+		// 	}
+		// }
 
-		// fd := p.fields[name]
+		fd := p.fields[name]
 
 		// var fd protoreflect.FieldDescriptor
 		// if strings.HasPrefix(name, "[") && strings.HasSuffix(name, "]") {
@@ -324,13 +322,15 @@ func (p *structMessageType) unmarshalInto(v reflect.Value, d decoder) error {
 
 		if fd == nil {
 			// Field is unknown.
-			if d.opts.DiscardUnknown {
+			if d.opts.UnknownFields == nil {
 				if err := d.SkipJSONValue(); err != nil {
 					return err
 				}
-				continue
+				//return d.newError(tok.Pos(), "unknown field %v in %s", tok.RawString(), typeName(p.reflectType))
+			} else if err := d.opts.UnknownFields(name, d.Decoder); err != nil {
+				return err
 			}
-			return d.newError(tok.Pos(), "unknown field %v in %s", tok.RawString(), typeName(p.reflectType))
+			continue
 		}
 
 		// Do not allow duplicate fields.
@@ -746,10 +746,11 @@ func (p *pointerParser) unmarshalInto(dest reflect.Value, d decoder) error {
 
 type interfaceParser struct {
 	reflectType reflect.Type
+	path        string
 }
 
 func (r *typeRegistry) buildInterfaceParser(t reflect.Type, path string) (*interfaceParser, error) {
-	return &interfaceParser{reflectType: t}, nil
+	return &interfaceParser{reflectType: t, path: path}, nil
 }
 
 func (p *interfaceParser) unmarshalInto(dest reflect.Value, d decoder) error {
@@ -759,10 +760,40 @@ func (p *interfaceParser) unmarshalInto(dest reflect.Value, d decoder) error {
 	}
 	switch tok.Kind() {
 	case json.String:
+		d.Read()
 		dest.Set(reflect.ValueOf(tok.ParsedString()))
 		return nil
+
+	case json.ArrayOpen:
+		var slice []interface{}
+		// TODO: Create ParseSlice helper?
+		p, err := allTypes.buildValueParser(reflect.TypeOf(slice), p.path+"[]")
+		if err != nil {
+			return err
+		}
+		v := reflect.ValueOf(&slice).Elem()
+		if err := p.unmarshalInto(v, d); err != nil {
+			return err
+		}
+		dest.Set(v)
+		return nil
+
+	case json.ObjectOpen:
+		var obj map[string]interface{}
+		// TODO: Create ParseObject helper?
+		p, err := allTypes.buildValueParser(reflect.TypeOf(obj), p.path+"{}")
+		if err != nil {
+			return err
+		}
+		v := reflect.ValueOf(&obj).Elem()
+		if err := p.unmarshalInto(v, d); err != nil {
+			return err
+		}
+		dest.Set(v)
+		return nil
+
 	default:
-		return d.unexpectedTokenError(tok, "todo", "expected string")
+		return d.unexpectedTokenError(tok, p.path, "expected string or arrayOpen or objectOpen")
 	}
 }
 

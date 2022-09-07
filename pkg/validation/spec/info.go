@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/go-openapi/swag"
+	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/jsonstream"
 )
 
@@ -91,6 +92,24 @@ func (e Extensions) GetObject(key string, out interface{}) error {
 // VendorExtensible composition block.
 type VendorExtensible struct {
 	Extensions Extensions
+}
+
+func (x *VendorExtensible) ParseUnknownField(k string, d *jsonstream.Decoder) error {
+	lk := strings.ToLower(k)
+	if strings.HasPrefix(lk, "x-") {
+		if x.Extensions == nil {
+			x.Extensions = map[string]interface{}{}
+		}
+		var value interface{}
+		if err := jsonstream.UnmarshalStream(d, &value); err != nil {
+			return err
+		}
+		klog.Warningf("parsed extension %q=%v", k, value)
+		x.Extensions[k] = value
+		return nil
+	} else {
+		return d.SkipJSONValue()
+	}
 }
 
 // AddExtension adds an extension to this extensible object
@@ -176,9 +195,11 @@ func (i *Info) UnmarshalJSON(data []byte) error {
 
 // UnmarshalJSON marshal this from JSON
 func (i *Info) UnmarshalJSONStream(data *jsonstream.Decoder) error {
-	if err := jsonstream.UnmarshalStream(data, &i.InfoProps); err != nil {
+	var opt jsonstream.UnmarshalOptions
+	opt.UnknownFields = i.VendorExtensible.ParseUnknownField
+
+	if err := opt.UnmarshalStream(data, &i.InfoProps); err != nil {
 		return err
 	}
-	// return json.Unmarshal(data, &i.VendorExtensible)
 	return nil
 }

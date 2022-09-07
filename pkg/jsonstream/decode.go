@@ -36,7 +36,7 @@ type UnmarshalOptions struct {
 	// AllowPartial bool
 
 	// If DiscardUnknown is set, unknown fields are ignored.
-	DiscardUnknown bool
+	UnknownFields func(name string, d *Decoder) error
 
 	// // Resolver is used for looking up types when unmarshaling
 	// // google.protobuf.Any messages or extension fields.
@@ -45,6 +45,10 @@ type UnmarshalOptions struct {
 	// 	protoregistry.MessageTypeResolver
 	// 	protoregistry.ExtensionTypeResolver
 	// }
+}
+
+func IgnoreUnknownFields(name string, d *Decoder) error {
+	return d.SkipJSONValue()
 }
 
 // Unmarshal reads the given []byte and populates the given proto.Message
@@ -57,26 +61,23 @@ func (o UnmarshalOptions) Unmarshal(b []byte, m interface{}) error {
 }
 
 func UnmarshalStream(stream *Decoder, m interface{}) error {
-	// proto.Reset(m)
+	var o UnmarshalOptions
+	o.UnknownFields = IgnoreUnknownFields
+	return o.UnmarshalStream(stream, m)
+}
 
-	// if o.Resolver == nil {
-	// 	o.Resolver = protoregistry.GlobalTypes
-	// }
-
+func (o UnmarshalOptions) UnmarshalStream(stream *Decoder, m interface{}) error {
 	msg, err := allTypes.wrapObject(m)
 	if err != nil {
 		return err
 	}
 
-	var o UnmarshalOptions
-	o.DiscardUnknown = true
 	dec := decoder{stream, o}
 	if err := msg.unmarshal(dec); err != nil {
 		return err
 	}
 
 	return nil
-
 }
 
 // unmarshal is a centralized function that all unmarshal operations go through.
@@ -128,7 +129,7 @@ func (d decoder) newError(pos int, f string, x ...interface{}) error {
 
 // unexpectedTokenError returns a syntax error for the given unexpected token.
 func (d decoder) unexpectedTokenError(tok json.Token, path string, info string) error {
-	return d.syntaxError(tok.Pos(), "unexpected token %s at %s (%s)", tok.RawString(), path, info)
+	return d.syntaxError(tok.Pos(), "unexpected token %s:%s at %s (%s)", tok.Kind(), tok.RawString(), path, info)
 }
 
 // syntaxError returns a syntax error for given position.

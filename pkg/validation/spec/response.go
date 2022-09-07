@@ -51,13 +51,21 @@ func (r *Response) UnmarshalJSON(data []byte) error {
 
 // UnmarshalJSON hydrates this items instance with the data from JSON
 func (r *Response) UnmarshalJSONStream(data *jsonstream.Decoder) error {
-	// if err := json.Unmarshal(data, &r.ResponseProps); err != nil {
-	// 	return err
-	// }
-	// if err := json.Unmarshal(data, &r.Refable); err != nil {
-	// 	return err
-	// }
-	return jsonstream.UnmarshalStream(data, &r.VendorExtensible)
+	var opt jsonstream.UnmarshalOptions
+	opt.UnknownFields = r.VendorExtensible.ParseUnknownField
+
+	props := struct {
+		ResponseProps
+		Refable
+	}{}
+
+	if err := opt.UnmarshalStream(data, &props); err != nil {
+		return err
+	}
+	r.ResponseProps = props.ResponseProps
+	r.Refable = props.Refable
+
+	return nil
 }
 
 // MarshalJSON converts this items object to JSON

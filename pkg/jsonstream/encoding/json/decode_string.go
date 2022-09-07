@@ -49,6 +49,7 @@ func (d *Decoder) parseString(in []byte) ([]byte, int, error) {
 		case r == '"':
 			in = in[1:]
 			n := len(in0) - len(in)
+			// fmt.Printf("not simple string %q\n", string(out))
 			return out, n, nil
 		case r == '\\':
 			if len(in) < 2 {

@@ -88,19 +88,26 @@ func (p *Parameter) UnmarshalJSON(data []byte) error {
 
 // UnmarshalJSON hydrates this items instance with the data from JSON
 func (p *Parameter) UnmarshalJSONStream(data *jsonstream.Decoder) error {
-	// if err := jsonstream.Unmarshal(data, &p.CommonValidations); err != nil {
-	// 	return err
-	// }
-	// if err := jsonstream.Unmarshal(data, &p.Refable); err != nil {
-	// 	return err
-	// }
-	// if err := jsonstream.Unmarshal(data, &p.SimpleSchema); err != nil {
-	// 	return err
-	// }
-	// if err := jsonstream.Unmarshal(data, &p.VendorExtensible); err != nil {
-	// 	return err
-	// }
-	return jsonstream.UnmarshalStream(data, &p.ParamProps)
+	var opt jsonstream.UnmarshalOptions
+	opt.UnknownFields = p.VendorExtensible.ParseUnknownField
+
+	props := struct {
+		Refable
+		CommonValidations
+		SimpleSchema
+		//VendorExtensible
+		ParamProps
+	}{}
+	if err := opt.UnmarshalStream(data, &props); err != nil {
+		return err
+	}
+
+	p.Refable = props.Refable
+	p.CommonValidations = props.CommonValidations
+	p.SimpleSchema = props.SimpleSchema
+	p.ParamProps = props.ParamProps
+
+	return nil
 }
 
 // MarshalJSON converts this items object to JSON

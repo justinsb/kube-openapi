@@ -95,9 +95,10 @@ func (t Token) Pos() int {
 }
 
 // Name returns the object name if token is Name, else it panics.
-func (t Token) Name() []byte {
+func (t Token) Name() string {
 	if t.kind == Name {
-		return t.str
+		// TODO: Try unsafe
+		return string(t.str)
 	}
 	panic(fmt.Sprintf("Token is not a Name: %v", t.RawString()))
 }

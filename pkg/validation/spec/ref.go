@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-openapi/jsonreference"
+	"k8s.io/kube-openapi/pkg/jsonstream"
 )
 
 // Refable is a struct for things that accept a $ref property
@@ -36,6 +37,11 @@ func (r Refable) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON unmarshalss the ref from json
 func (r *Refable) UnmarshalJSON(d []byte) error {
 	return json.Unmarshal(d, &r.Ref)
+}
+
+// UnmarshalJSON unmarshalss the ref from json
+func (r *Refable) UnmarshalJSONStream(d *jsonstream.Decoder) error {
+	return jsonstream.UnmarshalStream(d, &r.Ref)
 }
 
 // Ref represents a json reference that is potentially resolved
@@ -146,6 +152,27 @@ func (r *Ref) UnmarshalJSON(d []byte) error {
 		return err
 	}
 	return r.fromMap(v)
+}
+
+// UnmarshalJSON unmarshals this ref from a JSON object
+func (r *Ref) UnmarshalJSONStream(d *jsonstream.Decoder) error {
+	var opts jsonstream.UnmarshalOptions
+	props := struct {
+		Ref string `json:"$ref"`
+	}{}
+	if err := opts.UnmarshalStream(d, &props); err != nil {
+		return err
+	}
+
+	if props.Ref != "" {
+		ref, err := jsonreference.New(props.Ref)
+		if err != nil {
+			return err
+		}
+		*r = Ref{Ref: ref}
+	}
+
+	return nil
 }
 
 func (r *Ref) fromMap(v map[string]interface{}) error {

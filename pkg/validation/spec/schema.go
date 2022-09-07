@@ -20,6 +20,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/go-openapi/jsonreference"
 	"github.com/go-openapi/swag"
 	"k8s.io/kube-openapi/pkg/jsonstream"
 )
@@ -515,47 +516,71 @@ func (s *Schema) UnmarshalJSON(data []byte) error {
 
 // UnmarshalJSON marshal this from JSON
 func (s *Schema) UnmarshalJSONStream(data *jsonstream.Decoder) error {
+	sch := Schema{}
 	props := struct {
 		SchemaProps
 		SwaggerSchemaProps
 	}{}
-	if err := jsonstream.UnmarshalStream(data, &props); err != nil {
-		return err
-	}
+	var opts jsonstream.UnmarshalOptions
+	opts.UnknownFields = func(k string, d *jsonstream.Decoder) error {
+		switch k {
+		case "$ref":
+			var str string
+			if err := jsonstream.UnmarshalStream(d, &str); err != nil {
+				return err
+			}
 
-	sch := Schema{
-		SchemaProps:        props.SchemaProps,
-		SwaggerSchemaProps: props.SwaggerSchemaProps,
-	}
+			// klog.Infof("parsed field %q => %q", k, str)
+			ref, err := jsonreference.New(str)
+			if err != nil {
+				return err
+			}
+			props.Ref = Ref{Ref: ref}
+			return nil
 
-	var d map[string]interface{}
-	// if err := json.Unmarshal(data, &d); err != nil {
-	// 	return err
-	// }
+		case "$schema":
+			var str string
+			if err := jsonstream.UnmarshalStream(d, &str); err != nil {
+				return err
+			}
 
-	_ = sch.Ref.fromMap(d)
-	_ = sch.Schema.fromMap(d)
+			// klog.Infof("parsed field %q => %q", k, str)
+			u, err := url.Parse(str)
+			if err != nil {
+				return err
+			}
 
-	delete(d, "$ref")
-	delete(d, "$schema")
-	for _, pn := range swag.DefaultJSONNameProvider.GetJSONNames(s) {
-		delete(d, pn)
-	}
+			props.Schema = SchemaURL(u.String())
+			return nil
+		}
 
-	for k, vv := range d {
+		var vv interface{}
+		if err := jsonstream.UnmarshalStream(d, &vv); err != nil {
+			return err
+		}
+		// klog.Infof("parsed field %q => %v", k, vv)
+
 		lk := strings.ToLower(k)
 		if strings.HasPrefix(lk, "x-") {
 			if sch.Extensions == nil {
 				sch.Extensions = map[string]interface{}{}
 			}
 			sch.Extensions[k] = vv
-			continue
+			return nil
 		}
 		if sch.ExtraProps == nil {
 			sch.ExtraProps = map[string]interface{}{}
 		}
 		sch.ExtraProps[k] = vv
+		return nil
 	}
+
+	if err := opts.UnmarshalStream(data, &props); err != nil {
+		return err
+	}
+
+	sch.SchemaProps = props.SchemaProps
+	sch.SwaggerSchemaProps = props.SwaggerSchemaProps
 
 	*s = sch
 
