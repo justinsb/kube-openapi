@@ -1,6 +1,7 @@
 package jsonstream
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"strings"
@@ -10,7 +11,7 @@ import (
 
 type messageType interface {
 	unmarshalInto(dest reflect.Value, d decoder) error
-	unmarshalNew(d decoder) (reflect.Value, error)
+	// unmarshalNew(d decoder) (reflect.Value, error)
 	// FindField(name string) fieldParser
 }
 
@@ -26,10 +27,13 @@ type messageType interface {
 type structMessageType struct {
 	reflectType reflect.Type
 	path        string
-	fields      map[string]*structField
+	// fields      map[string]*structField
+	fields []*structField
 }
 
 type structField struct {
+	name      string
+	nameBytes []byte
 	field     reflect.StructField
 	fieldPath []int
 	parser    valueParser
@@ -178,7 +182,7 @@ func (r *typeRegistry) buildStructMessageType(t reflect.Type, path string) (mess
 	ret := &structMessageType{
 		reflectType: t,
 		path:        path,
-		fields:      make(map[string]*structField, t.NumField()),
+		// fields:      make(map[string]*structField, t.NumField()),
 	}
 	var addFields func(t reflect.Type, path string, parentFieldPath []int) error
 	addFields = func(t reflect.Type, path string, parentFieldPath []int) error {
@@ -223,11 +227,13 @@ func (r *typeRegistry) buildStructMessageType(t reflect.Type, path string) (mess
 				return err
 			}
 
-			ret.fields[jsonName] = &structField{
+			ret.fields = append(ret.fields, &structField{
+				name:      jsonName,
+				nameBytes: []byte(jsonName),
 				field:     field,
 				fieldPath: fieldPath,
 				parser:    parser,
-			}
+			})
 		}
 		return nil
 	}
@@ -258,7 +264,7 @@ func (p *structMessageType) unmarshalInto(v reflect.Value, d decoder) error {
 		if err != nil {
 			return err
 		}
-		var name string
+		var name []byte
 		switch tok.Kind() {
 		default:
 			return d.unexpectedTokenError(tok, p.path, "expected object close or name")
@@ -279,7 +285,16 @@ func (p *structMessageType) unmarshalInto(v reflect.Value, d decoder) error {
 		// }
 
 		// Get the FieldDescriptor.
-		fd := p.fields[name]
+		var fd *structField
+		for _, v := range p.fields {
+			if bytes.Equal(v.nameBytes, name) {
+				fd = v
+				// klog.Infof("found field %v %v", fd.name, string(name))
+			}
+		}
+
+		// fd := p.fields[name]
+
 		// var fd protoreflect.FieldDescriptor
 		// if strings.HasPrefix(name, "[") && strings.HasSuffix(name, "]") {
 		// 	// Only extension names are in [name] format.
@@ -507,7 +522,7 @@ func (p *stringParser) unmarshalInto(dest reflect.Value, d decoder) error {
 	}
 
 	if tok.Kind() == json.Name {
-		dest.Set(reflect.ValueOf(tok.Name()))
+		dest.Set(reflect.ValueOf(string(tok.Name())))
 		return nil
 	}
 

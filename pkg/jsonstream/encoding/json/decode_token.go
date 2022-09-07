@@ -76,7 +76,7 @@ type Token struct {
 	// boo is parsed boolean value.
 	boo bool
 	// str is parsed string value.
-	str string
+	str []byte
 }
 
 // Kind returns the token kind.
@@ -95,7 +95,7 @@ func (t Token) Pos() int {
 }
 
 // Name returns the object name if token is Name, else it panics.
-func (t Token) Name() string {
+func (t Token) Name() []byte {
 	if t.kind == Name {
 		return t.str
 	}
@@ -114,7 +114,7 @@ func (t Token) Bool() bool {
 // value in string if token is not a string.
 func (t Token) ParsedString() string {
 	if t.kind == String {
-		return t.str
+		return string(t.str)
 	}
 	panic(fmt.Sprintf("Token is not a String: %v", t.RawString()))
 }
@@ -188,5 +188,5 @@ func TokenEquals(x, y Token) bool {
 		x.pos == y.pos &&
 		bytes.Equal(x.raw, y.raw) &&
 		x.boo == y.boo &&
-		x.str == y.str
+		bytes.Equal(x.str, y.str)
 }

@@ -320,7 +320,7 @@ func (d *Decoder) consumeBoolToken(b bool, size int) Token {
 
 // consumeStringToken constructs a Token for a String kind with raw value derived
 // from current d.in and given size.
-func (d *Decoder) consumeStringToken(s string, size int) Token {
+func (d *Decoder) consumeStringToken(s []byte, size int) Token {
 	tok := Token{
 		kind: String,
 		raw:  d.in[:size],
