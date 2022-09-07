@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/go-openapi/swag"
+	"k8s.io/kube-openapi/pkg/jsonstream"
 )
 
 // Extensions vendor specific extensions
@@ -171,4 +172,13 @@ func (i *Info) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	return json.Unmarshal(data, &i.VendorExtensible)
+}
+
+// UnmarshalJSON marshal this from JSON
+func (i *Info) UnmarshalJSONStream(data *jsonstream.Decoder) error {
+	if err := jsonstream.UnmarshalStream(data, &i.InfoProps); err != nil {
+		return err
+	}
+	// return json.Unmarshal(data, &i.VendorExtensible)
+	return nil
 }

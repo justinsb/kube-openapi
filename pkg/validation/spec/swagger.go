@@ -19,6 +19,7 @@ import (
 	"fmt"
 
 	"github.com/go-openapi/swag"
+	"k8s.io/kube-openapi/pkg/jsonstream"
 )
 
 // Swagger this is the root document object for the API specification.
@@ -53,6 +54,19 @@ func (s *Swagger) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &sw.VendorExtensible); err != nil {
 		return err
 	}
+	*s = sw
+	return nil
+}
+
+// UnmarshalJSON unmarshals a swagger spec from json
+func (s *Swagger) UnmarshalJSONStream(data *jsonstream.Decoder) error {
+	var sw Swagger
+	if err := jsonstream.UnmarshalStream(data, &sw.SwaggerProps); err != nil {
+		return err
+	}
+	// if err := jsonstream.Unmarshal(data, &sw.VendorExtensible); err != nil {
+	// 	return err
+	// }
 	*s = sw
 	return nil
 }
@@ -123,6 +137,32 @@ func (s *SchemaOrBool) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// UnmarshalJSON converts this bool or schema object from a JSON structure
+func (s *SchemaOrBool) UnmarshalJSONStream(data *jsonstream.Decoder) error {
+	var nw SchemaOrBool
+	tok, err := data.Peek()
+	if err != nil {
+		return err
+	}
+	switch tok.Kind() {
+	case jsonstream.ObjectOpen:
+		var sch Schema
+		if err := jsonstream.UnmarshalStream(data, &sch); err != nil {
+			return err
+		}
+		nw.Schema = &sch
+		nw.Allows = true
+
+	case jsonstream.Bool:
+		nw.Allows = tok.Bool()
+	default:
+		return fmt.Errorf("expected object or boolean")
+	}
+
+	*s = nw
+	return nil
+}
+
 // SchemaOrStringArray represents a schema or a string array
 type SchemaOrStringArray struct {
 	Schema   *Schema
@@ -158,6 +198,31 @@ func (s *SchemaOrStringArray) UnmarshalJSON(data []byte) error {
 		if err := json.Unmarshal(data, &nw.Property); err != nil {
 			return err
 		}
+	}
+	*s = nw
+	return nil
+}
+
+// UnmarshalJSON converts this schema object or array from a JSON structure
+func (s *SchemaOrStringArray) UnmarshalJSONStream(data *jsonstream.Decoder) error {
+	tok, err := data.Peek()
+	if err != nil {
+		return err
+	}
+	var nw SchemaOrStringArray
+	switch tok.Kind() {
+	case jsonstream.ObjectOpen:
+		var sch Schema
+		if err := jsonstream.UnmarshalStream(data, &sch); err != nil {
+			return err
+		}
+		nw.Schema = &sch
+	case jsonstream.ArrayOpen:
+		if err := jsonstream.UnmarshalStream(data, &nw.Property); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("expected object or array")
 	}
 	*s = nw
 	return nil
@@ -223,6 +288,31 @@ func (s *StringOrArray) UnmarshalJSON(data []byte) error {
 	}
 }
 
+// UnmarshalJSON unmarshals this string or array object from a JSON array or JSON string
+func (s *StringOrArray) UnmarshalJSONStream(data *jsonstream.Decoder) error {
+	tok, err := data.Peek()
+	if err != nil {
+		return err
+	}
+
+	switch tok.Kind() {
+	case jsonstream.ArrayOpen:
+		var parsed []string
+		if err := jsonstream.UnmarshalStream(data, &parsed); err != nil {
+			return err
+		}
+		*s = StringOrArray(parsed)
+		return nil
+	case jsonstream.String:
+		data.Read()
+		*s = StringOrArray([]string{tok.ParsedString()})
+		return nil
+
+	default:
+		return fmt.Errorf("only string or array is allowed, not %v", tok.Kind())
+	}
+}
+
 // MarshalJSON converts this string or array to a JSON array or JSON string
 func (s StringOrArray) MarshalJSON() ([]byte, error) {
 	if len(s) == 1 {
@@ -281,6 +371,32 @@ func (s *SchemaOrArray) UnmarshalJSON(data []byte) error {
 			return err
 		}
 	}
+	*s = nw
+	return nil
+}
+
+// UnmarshalJSON converts this schema object or array from a JSON structure
+func (s *SchemaOrArray) UnmarshalJSONStream(data *jsonstream.Decoder) error {
+	var nw SchemaOrArray
+	tok, err := data.Peek()
+	if err != nil {
+		return err
+	}
+	switch tok.Kind() {
+	case jsonstream.ObjectOpen:
+		var sch Schema
+		if err := jsonstream.UnmarshalStream(data, &sch); err != nil {
+			return err
+		}
+		nw.Schema = &sch
+	case jsonstream.ArrayOpen:
+		if err := jsonstream.UnmarshalStream(data, &nw.Schemas); err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("SchemaOrArray expected [ or {")
+	}
+
 	*s = nw
 	return nil
 }

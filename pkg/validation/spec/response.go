@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 
 	"github.com/go-openapi/swag"
+	"k8s.io/kube-openapi/pkg/jsonstream"
 )
 
 // ResponseProps properties specific to a response
@@ -46,6 +47,17 @@ func (r *Response) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	return json.Unmarshal(data, &r.VendorExtensible)
+}
+
+// UnmarshalJSON hydrates this items instance with the data from JSON
+func (r *Response) UnmarshalJSONStream(data *jsonstream.Decoder) error {
+	// if err := json.Unmarshal(data, &r.ResponseProps); err != nil {
+	// 	return err
+	// }
+	// if err := json.Unmarshal(data, &r.Refable); err != nil {
+	// 	return err
+	// }
+	return jsonstream.UnmarshalStream(data, &r.VendorExtensible)
 }
 
 // MarshalJSON converts this items object to JSON

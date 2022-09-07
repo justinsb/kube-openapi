@@ -20,8 +20,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	"k8s.io/kube-openapi/pkg/validation/spec"
 	"github.com/go-openapi/swag"
+	"k8s.io/kube-openapi/pkg/jsonstream"
+	"k8s.io/kube-openapi/pkg/validation/spec"
 )
 
 // Paths describes the available paths and operations for the API, more at https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.0.md#pathsObject
@@ -71,6 +72,39 @@ func (p *Paths) UnmarshalJSON(data []byte) error {
 			p.Paths[k] = pi
 		}
 	}
+	return nil
+}
+
+// UnmarshalJSON hydrates this items instance with the data from JSON
+func (p *Paths) UnmarshalJSONStream(data *jsonstream.Decoder) error {
+	return data.SkipJSONValue()
+
+	// var res map[string]json.RawMessage
+	// if err := jsonstream.UnmarshalStream(data, &res); err != nil {
+	// 	return err
+	// }
+	// for k, v := range res {
+	// 	if strings.HasPrefix(strings.ToLower(k), "x-") {
+	// 		if p.Extensions == nil {
+	// 			p.Extensions = make(map[string]interface{})
+	// 		}
+	// 		var d interface{}
+	// 		if err := json.Unmarshal(v, &d); err != nil {
+	// 			return err
+	// 		}
+	// 		p.Extensions[k] = d
+	// 	}
+	// 	if strings.HasPrefix(k, "/") {
+	// 		if p.Paths == nil {
+	// 			p.Paths = make(map[string]*Path)
+	// 		}
+	// 		var pi *Path
+	// 		if err := json.Unmarshal(v, &pi); err != nil {
+	// 			return err
+	// 		}
+	// 		p.Paths[k] = pi
+	// 	}
+	// }
 	return nil
 }
 

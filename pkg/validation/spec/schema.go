@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/go-openapi/swag"
+	"k8s.io/kube-openapi/pkg/jsonstream"
 )
 
 // BooleanProperty creates a boolean property
@@ -482,6 +483,55 @@ func (s *Schema) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &d); err != nil {
 		return err
 	}
+
+	_ = sch.Ref.fromMap(d)
+	_ = sch.Schema.fromMap(d)
+
+	delete(d, "$ref")
+	delete(d, "$schema")
+	for _, pn := range swag.DefaultJSONNameProvider.GetJSONNames(s) {
+		delete(d, pn)
+	}
+
+	for k, vv := range d {
+		lk := strings.ToLower(k)
+		if strings.HasPrefix(lk, "x-") {
+			if sch.Extensions == nil {
+				sch.Extensions = map[string]interface{}{}
+			}
+			sch.Extensions[k] = vv
+			continue
+		}
+		if sch.ExtraProps == nil {
+			sch.ExtraProps = map[string]interface{}{}
+		}
+		sch.ExtraProps[k] = vv
+	}
+
+	*s = sch
+
+	return nil
+}
+
+// UnmarshalJSON marshal this from JSON
+func (s *Schema) UnmarshalJSONStream(data *jsonstream.Decoder) error {
+	props := struct {
+		SchemaProps
+		SwaggerSchemaProps
+	}{}
+	if err := jsonstream.UnmarshalStream(data, &props); err != nil {
+		return err
+	}
+
+	sch := Schema{
+		SchemaProps:        props.SchemaProps,
+		SwaggerSchemaProps: props.SwaggerSchemaProps,
+	}
+
+	var d map[string]interface{}
+	// if err := json.Unmarshal(data, &d); err != nil {
+	// 	return err
+	// }
 
 	_ = sch.Ref.fromMap(d)
 	_ = sch.Schema.fromMap(d)

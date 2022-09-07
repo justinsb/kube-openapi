@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 
 	"github.com/go-openapi/swag"
+	"k8s.io/kube-openapi/pkg/jsonstream"
 )
 
 // TagProps describe a tag entry in the top level tags section of a swagger spec
@@ -56,4 +57,13 @@ func (t *Tag) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	return json.Unmarshal(data, &t.VendorExtensible)
+}
+
+// UnmarshalJSON marshal this from JSON
+func (t *Tag) UnmarshalJSONStream(data *jsonstream.Decoder) error {
+	if err := jsonstream.UnmarshalStream(data, &t.TagProps); err != nil {
+		return err
+	}
+	// return json.Unmarshal(data, &t.VendorExtensible)
+	return nil
 }
