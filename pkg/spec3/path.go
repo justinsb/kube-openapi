@@ -77,6 +77,7 @@ func (p *Paths) UnmarshalJSON(data []byte) error {
 
 // UnmarshalJSON hydrates this items instance with the data from JSON
 func (p *Paths) UnmarshalJSONStream(data *jsonstream.Decoder) error {
+	panic("nope")
 	var opt jsonstream.UnmarshalOptions
 	opt.UnknownFields = func(k string, d *jsonstream.Decoder) error {
 		if strings.HasPrefix(strings.ToLower(k), "x-") {

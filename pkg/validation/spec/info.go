@@ -94,8 +94,9 @@ type VendorExtensible struct {
 }
 
 func (x *VendorExtensible) ParseUnknownField(k string, d *jsonstream.Decoder) error {
-	lk := strings.ToLower(k)
-	if strings.HasPrefix(lk, "x-") {
+	if len(k) >= 2 && (k[0] == 'x' || k[0] == 'X') && k[1] == '-' {
+		// lk := strings.ToLower(k)
+		// if strings.HasPrefix(lk, "x-") {
 		if x.Extensions == nil {
 			x.Extensions = map[string]interface{}{}
 		}

@@ -68,7 +68,7 @@ func (p *Paths) UnmarshalJSON(data []byte) error {
 func (p *Paths) UnmarshalJSONStream(data *jsonstream.Decoder) error {
 	var opt jsonstream.UnmarshalOptions
 	opt.UnknownFields = func(k string, d *jsonstream.Decoder) error {
-		if strings.HasPrefix(strings.ToLower(k), "x-") {
+		if len(k) >= 2 && (k[0] == 'x' || k[0] == 'X') && k[1] == '-' {
 			if p.Extensions == nil {
 				p.Extensions = make(map[string]interface{})
 			}
@@ -78,7 +78,7 @@ func (p *Paths) UnmarshalJSONStream(data *jsonstream.Decoder) error {
 			}
 			p.Extensions[k] = d
 			return nil
-		} else if strings.HasPrefix(k, "/") {
+		} else if len(k) >= 1 && (k[0] == '/') {
 			if p.Paths == nil {
 				p.Paths = make(map[string]PathItem)
 			}
@@ -91,7 +91,6 @@ func (p *Paths) UnmarshalJSONStream(data *jsonstream.Decoder) error {
 		} else {
 			return d.SkipJSONValue()
 		}
-
 	}
 
 	props := struct {

@@ -60,16 +60,16 @@ func (s *Swagger) UnmarshalJSON(data []byte) error {
 
 // UnmarshalJSON unmarshals a swagger spec from json
 func (s *Swagger) UnmarshalJSONStream(data *jsonstream.Decoder) error {
-	var sw Swagger
+	// var sw Swagger
 
 	var opt jsonstream.UnmarshalOptions
-	opt.UnknownFields = sw.VendorExtensible.ParseUnknownField
+	opt.UnknownFields = s.VendorExtensible.ParseUnknownField
 
-	if err := opt.UnmarshalStream(data, &sw.SwaggerProps); err != nil {
+	if err := opt.UnmarshalStream(data, &s.SwaggerProps); err != nil {
 		return err
 	}
 
-	*s = sw
+	// *s = sw
 	return nil
 }
 
@@ -141,7 +141,7 @@ func (s *SchemaOrBool) UnmarshalJSON(data []byte) error {
 
 // UnmarshalJSON converts this bool or schema object from a JSON structure
 func (s *SchemaOrBool) UnmarshalJSONStream(data *jsonstream.Decoder) error {
-	var nw SchemaOrBool
+	// var nw SchemaOrBool
 	tok, err := data.Peek()
 	if err != nil {
 		return err
@@ -152,16 +152,16 @@ func (s *SchemaOrBool) UnmarshalJSONStream(data *jsonstream.Decoder) error {
 		if err := jsonstream.UnmarshalStream(data, &sch); err != nil {
 			return err
 		}
-		nw.Schema = &sch
-		nw.Allows = true
+		s.Schema = &sch
+		s.Allows = true
 
 	case jsonstream.Bool:
-		nw.Allows = tok.Bool()
+		s.Allows = tok.Bool()
 	default:
 		return fmt.Errorf("expected object or boolean")
 	}
 
-	*s = nw
+	// *s = nw
 	return nil
 }
 
@@ -211,22 +211,22 @@ func (s *SchemaOrStringArray) UnmarshalJSONStream(data *jsonstream.Decoder) erro
 	if err != nil {
 		return err
 	}
-	var nw SchemaOrStringArray
+	// var nw SchemaOrStringArray
 	switch tok.Kind() {
 	case jsonstream.ObjectOpen:
-		var sch Schema
-		if err := jsonstream.UnmarshalStream(data, &sch); err != nil {
+		// var sch Schema
+		if err := jsonstream.UnmarshalStream(data, &s.Schema); err != nil {
 			return err
 		}
-		nw.Schema = &sch
+		// s.Schema = &sch
 	case jsonstream.ArrayOpen:
-		if err := jsonstream.UnmarshalStream(data, &nw.Property); err != nil {
+		if err := jsonstream.UnmarshalStream(data, &s.Property); err != nil {
 			return err
 		}
 	default:
 		return fmt.Errorf("expected object or array")
 	}
-	*s = nw
+	// *s = nw
 	return nil
 }
 
@@ -379,26 +379,26 @@ func (s *SchemaOrArray) UnmarshalJSON(data []byte) error {
 
 // UnmarshalJSON converts this schema object or array from a JSON structure
 func (s *SchemaOrArray) UnmarshalJSONStream(data *jsonstream.Decoder) error {
-	var nw SchemaOrArray
+	// var nw SchemaOrArray
 	tok, err := data.Peek()
 	if err != nil {
 		return err
 	}
 	switch tok.Kind() {
 	case jsonstream.ObjectOpen:
-		var sch Schema
-		if err := jsonstream.UnmarshalStream(data, &sch); err != nil {
+		// var sch Schema
+		if err := jsonstream.UnmarshalStream(data, &s.Schema); err != nil {
 			return err
 		}
-		nw.Schema = &sch
+		// s.Schema = &sch
 	case jsonstream.ArrayOpen:
-		if err := jsonstream.UnmarshalStream(data, &nw.Schemas); err != nil {
+		if err := jsonstream.UnmarshalStream(data, &s.Schemas); err != nil {
 			return err
 		}
 	default:
 		return fmt.Errorf("SchemaOrArray expected [ or {")
 	}
 
-	*s = nw
+	// *s = nw
 	return nil
 }

@@ -39,6 +39,9 @@ func (d *Decoder) parseString(in []byte) ([]byte, int, error) {
 		return in[:j], j + 2, nil
 	}
 	i := indexNeedEscapeInBytes(in)
+	// if in[i] == '"' {
+	// 	return in[:i], i + 2, nil
+	// }
 	in, out := in[i:], in[:i:i] // set cap to prevent mutations
 	for len(in) > 0 {
 		switch r, n := utf8.DecodeRune(in); {

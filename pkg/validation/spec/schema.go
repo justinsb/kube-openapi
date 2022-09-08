@@ -516,7 +516,7 @@ func (s *Schema) UnmarshalJSON(data []byte) error {
 
 // UnmarshalJSON marshal this from JSON
 func (s *Schema) UnmarshalJSONStream(data *jsonstream.Decoder) error {
-	sch := Schema{}
+	// sch := Schema{}
 	props := struct {
 		SchemaProps
 		SwaggerSchemaProps
@@ -560,18 +560,19 @@ func (s *Schema) UnmarshalJSONStream(data *jsonstream.Decoder) error {
 		}
 		// klog.Infof("parsed field %q => %v", k, vv)
 
-		lk := strings.ToLower(k)
-		if strings.HasPrefix(lk, "x-") {
-			if sch.Extensions == nil {
-				sch.Extensions = map[string]interface{}{}
+		if len(k) >= 2 && (k[0] == 'x' || k[0] == 'X') && k[1] == '-' {
+			// 	lk := strings.ToLower(k)
+			// if strings.HasPrefix(lk, "x-") {
+			if s.Extensions == nil {
+				s.Extensions = map[string]interface{}{}
 			}
-			sch.Extensions[k] = vv
+			s.Extensions[k] = vv
 			return nil
 		}
-		if sch.ExtraProps == nil {
-			sch.ExtraProps = map[string]interface{}{}
+		if s.ExtraProps == nil {
+			s.ExtraProps = map[string]interface{}{}
 		}
-		sch.ExtraProps[k] = vv
+		s.ExtraProps[k] = vv
 		return nil
 	}
 
@@ -579,10 +580,10 @@ func (s *Schema) UnmarshalJSONStream(data *jsonstream.Decoder) error {
 		return err
 	}
 
-	sch.SchemaProps = props.SchemaProps
-	sch.SwaggerSchemaProps = props.SwaggerSchemaProps
+	s.SchemaProps = props.SchemaProps
+	s.SwaggerSchemaProps = props.SwaggerSchemaProps
 
-	*s = sch
+	// *s = sch
 
 	return nil
 }
