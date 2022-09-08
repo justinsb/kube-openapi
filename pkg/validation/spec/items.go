@@ -17,7 +17,6 @@ package spec
 import (
 	"encoding/json"
 
-	"github.com/go-openapi/jsonreference"
 	"github.com/go-openapi/swag"
 	"k8s.io/kube-openapi/pkg/jsonstream"
 )
@@ -100,16 +99,7 @@ func (i *Items) UnmarshalJSONStream(d *jsonstream.Decoder) error {
 	var opts jsonstream.UnmarshalOptions
 	opts.UnknownFields = func(k string, d *jsonstream.Decoder) error {
 		if k == "#ref" {
-			var v string
-			if err := jsonstream.UnmarshalStream(d, &v); err != nil {
-				return err
-			}
-			ref, err := jsonreference.New(v)
-			if err != nil {
-				return err
-			}
-			i.Ref.Ref = ref
-			return nil
+			return parseRef(d, &i.Ref)
 		}
 		return i.VendorExtensible.ParseUnknownField(k, d)
 	}

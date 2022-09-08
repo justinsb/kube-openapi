@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-openapi/jsonreference"
+	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/jsonstream"
 )
 
@@ -154,6 +155,31 @@ func (r *Ref) UnmarshalJSON(d []byte) error {
 	return r.fromMap(v)
 }
 
+var jsonReferenceCache = make(map[string]jsonreference.Ref)
+
+func parseRef(d *jsonstream.Decoder, ref *Ref) error {
+	var str string
+	if err := jsonstream.UnmarshalStream(d, &str); err != nil {
+		return err
+	}
+
+	jsonRef, found := jsonReferenceCache[str]
+	if found {
+		ref.Ref = jsonRef
+		return nil
+	}
+
+	// klog.Infof("parsed field %q => %q", k, str)
+	// klog.Infof("jsonreference.New %q", str)
+	jsonRef, err := jsonreference.New(str)
+	if err != nil {
+		return err
+	}
+	jsonReferenceCache[str] = jsonRef
+	ref.Ref = jsonRef
+	return nil
+}
+
 // UnmarshalJSON unmarshals this ref from a JSON object
 func (r *Ref) UnmarshalJSONStream(d *jsonstream.Decoder) error {
 	var opts jsonstream.UnmarshalOptions
@@ -165,6 +191,7 @@ func (r *Ref) UnmarshalJSONStream(d *jsonstream.Decoder) error {
 	}
 
 	if props.Ref != "" {
+		klog.Infof("jsonreference.New %q", props.Ref)
 		ref, err := jsonreference.New(props.Ref)
 		if err != nil {
 			return err

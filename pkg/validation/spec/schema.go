@@ -20,7 +20,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/go-openapi/jsonreference"
 	"github.com/go-openapi/swag"
 	"k8s.io/kube-openapi/pkg/jsonstream"
 )
@@ -525,18 +524,7 @@ func (s *Schema) UnmarshalJSONStream(data *jsonstream.Decoder) error {
 	opts.UnknownFields = func(k string, d *jsonstream.Decoder) error {
 		switch k {
 		case "$ref":
-			var str string
-			if err := jsonstream.UnmarshalStream(d, &str); err != nil {
-				return err
-			}
-
-			// klog.Infof("parsed field %q => %q", k, str)
-			ref, err := jsonreference.New(str)
-			if err != nil {
-				return err
-			}
-			props.Ref = Ref{Ref: ref}
-			return nil
+			return parseRef(d, &props.Ref)
 
 		case "$schema":
 			var str string
