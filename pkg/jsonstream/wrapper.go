@@ -404,7 +404,14 @@ type mapParser struct {
 	valueParser valueParser
 }
 
-func (r *typeRegistry) buildMapParser(t reflect.Type, path string) (*mapParser, error) {
+func (r *typeRegistry) buildMapParser(t reflect.Type, path string) (valueParser, error) {
+	klog.Infof("building map parser for %v", typeName(t))
+
+	if t.Key() == parserForString.reflectType && t.Elem() == parserForString.reflectType {
+		klog.Infof("building specialized map parser for map[string]string")
+		return &mapStringStringParser{}, nil
+	}
+
 	keyParser, err := r.buildValueParser(t.Key(), path+"[@key]")
 	if err != nil {
 		return nil, err
@@ -485,6 +492,57 @@ Loop:
 		dest.SetMapIndex(key, value)
 	}
 
+	return nil
+}
+
+type mapStringStringParser struct {
+	path string
+}
+
+func (p *mapStringStringParser) unmarshalInto(dest reflect.Value, d decoder) error {
+	v := make(map[string]string)
+
+	tok, err := d.Read()
+	if err != nil {
+		return err
+	}
+	if tok.Kind() != json.ObjectOpen {
+		return d.unexpectedTokenError(tok, "todo", "expected object open")
+	}
+
+Loop:
+	for {
+		// Read field name.
+		tok, err := d.Read()
+		if err != nil {
+			return err
+		}
+		var key string
+		switch tok.Kind() {
+		default:
+			return d.unexpectedTokenError(tok, "todo", "expected object close or name")
+		case json.ObjectClose:
+			break Loop
+		case json.Name:
+			// Continue.
+			key = tok.Name()
+		}
+
+		var value string
+		tok, err = d.Read()
+		if err != nil {
+			return err
+		}
+		switch tok.Kind() {
+		default:
+			return d.unexpectedTokenError(tok, "todo", "expected object close or name")
+		case json.String:
+			value = tok.ParsedString()
+		}
+		v[key] = value
+	}
+
+	dest.Set(reflect.ValueOf(v))
 	return nil
 }
 
