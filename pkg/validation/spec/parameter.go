@@ -92,7 +92,7 @@ func (p *Parameter) UnmarshalJSONStream(data *jsonstream.Decoder) error {
 	opt.UnknownFields = p.VendorExtensible.ParseUnknownField
 
 	props := struct {
-		Refable
+		// Refable
 		CommonValidations
 		SimpleSchema
 		//VendorExtensible
@@ -102,7 +102,7 @@ func (p *Parameter) UnmarshalJSONStream(data *jsonstream.Decoder) error {
 		return err
 	}
 
-	p.Refable = props.Refable
+	// p.Refable = props.Refable
 	p.CommonValidations = props.CommonValidations
 	p.SimpleSchema = props.SimpleSchema
 	p.ParamProps = props.ParamProps

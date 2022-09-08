@@ -61,14 +61,14 @@ func (p *PathItem) UnmarshalJSONStream(data *jsonstream.Decoder) error {
 	var opts jsonstream.UnmarshalOptions
 	opts.UnknownFields = p.VendorExtensible.ParseUnknownField
 	props := struct {
-		Refable
+		// Refable
 		PathItemProps
 	}{}
 	if err := opts.UnmarshalStream(data, &props); err != nil {
 		return err
 	}
 
-	p.Refable = props.Refable
+	// p.Refable = props.Refable
 	p.PathItemProps = props.PathItemProps
 
 	return nil

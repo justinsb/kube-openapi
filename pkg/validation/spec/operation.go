@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 
 	"github.com/go-openapi/swag"
+	"k8s.io/kube-openapi/pkg/jsonstream"
 )
 
 // OperationProps describes an operation
@@ -79,6 +80,16 @@ func (o *Operation) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	return json.Unmarshal(data, &o.VendorExtensible)
+}
+
+// UnmarshalJSON hydrates this items instance with the data from JSON
+func (o *Operation) UnmarshalJSONStream(d *jsonstream.Decoder) error {
+	var opt jsonstream.UnmarshalOptions
+	opt.UnknownFields = o.VendorExtensible.ParseUnknownField
+	if err := opt.UnmarshalStream(d, &o.OperationProps); err != nil {
+		return err
+	}
+	return nil
 }
 
 // MarshalJSON converts this items object to JSON

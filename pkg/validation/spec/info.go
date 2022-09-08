@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	"github.com/go-openapi/swag"
-	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/jsonstream"
 )
 
@@ -104,7 +103,7 @@ func (x *VendorExtensible) ParseUnknownField(k string, d *jsonstream.Decoder) er
 		if err := jsonstream.UnmarshalStream(d, &value); err != nil {
 			return err
 		}
-		klog.Warningf("parsed extension %q=%v", k, value)
+		//klog.Warningf("parsed extension %q=%v", k, value)
 		x.Extensions[k] = value
 		return nil
 	} else {

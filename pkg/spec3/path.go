@@ -88,6 +88,7 @@ func (p *Paths) UnmarshalJSONStream(data *jsonstream.Decoder) error {
 				return err
 			}
 			p.Extensions[k] = d
+			return nil
 		}
 		if strings.HasPrefix(k, "/") {
 			if p.Paths == nil {
@@ -98,12 +99,14 @@ func (p *Paths) UnmarshalJSONStream(data *jsonstream.Decoder) error {
 				return err
 			}
 			p.Paths[k] = pi
+			return nil
 		}
-		return nil
+		return d.SkipJSONValue()
 	}
 
 	props := struct {
 	}{}
+	panic("the other code path")
 
 	return opt.UnmarshalStream(data, &props)
 }
@@ -144,6 +147,24 @@ func (p *Path) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &p.VendorExtensible); err != nil {
 		return err
 	}
+	return nil
+}
+
+func (p *Path) UnmarshalJSONStream(d *jsonstream.Decoder) error {
+	var opt jsonstream.UnmarshalOptions
+	opt.UnknownFields = p.VendorExtensible.ParseUnknownField
+
+	props := struct {
+		PathProps
+		//Refable
+	}{}
+
+	if err := opt.UnmarshalStream(d, &props); err != nil {
+		return err
+	}
+	p.PathProps = props.PathProps
+	// p.Refable = props.Refable
+
 	return nil
 }
 

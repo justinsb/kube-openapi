@@ -556,6 +556,7 @@ func (p *boolParser) unmarshalInto(dest reflect.Value, d decoder) error {
 
 	if tok.Kind() == json.Bool {
 		dest.Set(reflect.ValueOf(tok.Bool()))
+		return nil
 	}
 
 	return d.newError(tok.Pos(), "invalid value for %T type: %v", p, tok.RawString())
@@ -666,6 +667,7 @@ func (p *sliceParser) unmarshalInto(dest reflect.Value, d decoder) error {
 	// 		list.Append(val)
 	// 	}
 	// default:
+	n := 0
 	for {
 		tok, err := d.Peek()
 		if err != nil {
@@ -674,6 +676,11 @@ func (p *sliceParser) unmarshalInto(dest reflect.Value, d decoder) error {
 
 		if tok.Kind() == json.ArrayClose {
 			d.Read()
+			if n == 0 {
+				// Make sure we create an empty array for []
+				v := reflect.MakeSlice(p.reflectType, 0, 0)
+				dest.Set(v)
+			}
 			return nil
 		}
 
@@ -682,6 +689,7 @@ func (p *sliceParser) unmarshalInto(dest reflect.Value, d decoder) error {
 			return err
 		}
 		appended := reflect.Append(dest, val)
+		n++
 		dest.Set(appended)
 	}
 	// }

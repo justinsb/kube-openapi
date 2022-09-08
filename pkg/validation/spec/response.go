@@ -56,14 +56,14 @@ func (r *Response) UnmarshalJSONStream(data *jsonstream.Decoder) error {
 
 	props := struct {
 		ResponseProps
-		Refable
+		//Refable
 	}{}
 
 	if err := opt.UnmarshalStream(data, &props); err != nil {
 		return err
 	}
 	r.ResponseProps = props.ResponseProps
-	r.Refable = props.Refable
+	// r.Refable = props.Refable
 
 	return nil
 }

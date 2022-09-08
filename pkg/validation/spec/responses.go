@@ -20,6 +20,7 @@ import (
 	"strconv"
 
 	"github.com/go-openapi/swag"
+	"k8s.io/kube-openapi/pkg/jsonstream"
 )
 
 // Responses is a container for the expected responses of an operation.
@@ -48,6 +49,21 @@ func (r *Responses) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &r.VendorExtensible); err != nil {
 		return err
 	}
+	if reflect.DeepEqual(ResponsesProps{}, r.ResponsesProps) {
+		r.ResponsesProps = ResponsesProps{}
+	}
+	return nil
+}
+
+// UnmarshalJSON hydrates this items instance with the data from JSON
+func (r *Responses) UnmarshalJSONStream(d *jsonstream.Decoder) error {
+	var opt jsonstream.UnmarshalOptions
+	opt.UnknownFields = r.VendorExtensible.ParseUnknownField
+	if err := opt.UnmarshalStream(d, &r.ResponsesProps); err != nil {
+		return err
+	}
+
+	//TODO: What is this?
 	if reflect.DeepEqual(ResponsesProps{}, r.ResponsesProps) {
 		r.ResponsesProps = ResponsesProps{}
 	}
@@ -92,7 +108,28 @@ func (r ResponsesProps) MarshalJSON() ([]byte, error) {
 func (r *ResponsesProps) UnmarshalJSON(data []byte) error {
 	var res map[string]Response
 	if err := json.Unmarshal(data, &res); err != nil {
-		return nil
+		return err
+	}
+	if v, ok := res["default"]; ok {
+		r.Default = &v
+		delete(res, "default")
+	}
+	for k, v := range res {
+		if nk, err := strconv.Atoi(k); err == nil {
+			if r.StatusCodeResponses == nil {
+				r.StatusCodeResponses = map[int]Response{}
+			}
+			r.StatusCodeResponses[nk] = v
+		}
+	}
+	return nil
+}
+
+// UnmarshalJSON hydrates this items instance with the data from JSON
+func (r *ResponsesProps) UnmarshalJSONStream(d *jsonstream.Decoder) error {
+	var res map[string]Response
+	if err := jsonstream.UnmarshalStream(d, &res); err != nil {
+		return err
 	}
 	if v, ok := res["default"]; ok {
 		r.Default = &v

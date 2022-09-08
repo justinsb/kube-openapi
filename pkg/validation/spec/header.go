@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 
 	"github.com/go-openapi/swag"
+	"k8s.io/kube-openapi/pkg/jsonstream"
 )
 
 const (
@@ -72,4 +73,26 @@ func (h *Header) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	return json.Unmarshal(data, &h.HeaderProps)
+}
+
+// UnmarshalJSON unmarshals this header from JSON
+func (h *Header) UnmarshalJSONStream(d *jsonstream.Decoder) error {
+	props := struct {
+		CommonValidations
+		SimpleSchema
+		//	VendorExtensible
+		HeaderProps
+	}{}
+	var opts jsonstream.UnmarshalOptions
+	opts.UnknownFields = h.VendorExtensible.ParseUnknownField
+
+	if err := opts.UnmarshalStream(d, &props); err != nil {
+		return err
+	}
+
+	h.CommonValidations = props.CommonValidations
+	h.SimpleSchema = props.SimpleSchema
+	h.HeaderProps = props.HeaderProps
+
+	return nil
 }

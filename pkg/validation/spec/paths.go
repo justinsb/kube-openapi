@@ -77,8 +77,8 @@ func (p *Paths) UnmarshalJSONStream(data *jsonstream.Decoder) error {
 				return err
 			}
 			p.Extensions[k] = d
-		}
-		if strings.HasPrefix(k, "/") {
+			return nil
+		} else if strings.HasPrefix(k, "/") {
 			if p.Paths == nil {
 				p.Paths = make(map[string]PathItem)
 			}
@@ -87,8 +87,11 @@ func (p *Paths) UnmarshalJSONStream(data *jsonstream.Decoder) error {
 				return err
 			}
 			p.Paths[k] = pi
+			return nil
+		} else {
+			return d.SkipJSONValue()
 		}
-		return nil
+
 	}
 
 	props := struct {
