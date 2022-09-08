@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 
+	"k8s.io/klog/v2"
 	"k8s.io/kube-openapi/pkg/jsonstream/encoding/json"
 )
 
@@ -69,13 +70,15 @@ type valueParser interface {
 }
 
 type typeRegistry struct {
-	byType map[reflect.Type]messageType
+	byType       map[reflect.Type]messageType
+	valueParsers map[reflect.Type]valueParser
 }
 
 var allTypes typeRegistry
 
 func init() {
 	allTypes.byType = make(map[reflect.Type]messageType)
+	allTypes.valueParsers = make(map[reflect.Type]valueParser)
 }
 
 func (r *typeRegistry) wrapObject(m any) (message, error) {
@@ -102,6 +105,19 @@ func (r *typeRegistry) wrapObject(m any) (message, error) {
 }
 
 func (r *typeRegistry) buildValueParser(t reflect.Type, path string) (valueParser, error) {
+	valueParser, found := r.valueParsers[t]
+	if !found {
+		vp, err := r.buildValueParser0(t, "")
+		if err != nil {
+			return nil, err
+		}
+		valueParser = vp
+		r.valueParsers[t] = valueParser
+	}
+	return valueParser, nil
+}
+
+func (r *typeRegistry) buildValueParser0(t reflect.Type, path string) (valueParser, error) {
 	if t.Implements(reflect.TypeOf((*UnmarshalJSONStream)(nil)).Elem()) {
 		return r.buildCustomUnmarshaller(t, path)
 	}
@@ -473,9 +489,12 @@ Loop:
 }
 
 type stringParser struct {
+	reflectType reflect.Type
 }
 
-var parserForString = &stringParser{}
+var parserForString = &stringParser{
+	reflectType: reflect.TypeOf(string("")),
+}
 
 func (p *stringParser) unmarshalInto(dest reflect.Value, d decoder) error {
 	tok, err := d.Read()
@@ -630,7 +649,11 @@ type sliceParser struct {
 	path        string
 }
 
-func (r *typeRegistry) buildSliceParser(t reflect.Type, path string) (*sliceParser, error) {
+func (r *typeRegistry) buildSliceParser(t reflect.Type, path string) (valueParser, error) {
+	klog.Infof("building slice parser for %v", typeName(t))
+	if t.Elem() == parserForString.reflectType {
+		return &stringSliceParser{}, nil
+	}
 	elemParser, err := r.buildValueParser(t.Elem(), path+"[]")
 	if err != nil {
 		return nil, err
@@ -667,6 +690,7 @@ func (p *sliceParser) unmarshalInto(dest reflect.Value, d decoder) error {
 	// 		list.Append(val)
 	// 	}
 	// default:
+	slice := dest
 	n := 0
 	for {
 		tok, err := d.Peek()
@@ -680,6 +704,8 @@ func (p *sliceParser) unmarshalInto(dest reflect.Value, d decoder) error {
 				// Make sure we create an empty array for []
 				v := reflect.MakeSlice(p.reflectType, 0, 0)
 				dest.Set(v)
+			} else {
+				dest.Set(slice)
 			}
 			return nil
 		}
@@ -688,9 +714,54 @@ func (p *sliceParser) unmarshalInto(dest reflect.Value, d decoder) error {
 		if err := p.elemParser.unmarshalInto(val, d); err != nil {
 			return err
 		}
-		appended := reflect.Append(dest, val)
+		slice = reflect.Append(slice, val)
 		n++
-		dest.Set(appended)
+	}
+	// }
+
+	// return nil
+}
+
+type stringSliceParser struct {
+	path string
+}
+
+func (p *stringSliceParser) unmarshalInto(dest reflect.Value, d decoder) error {
+	tok, err := d.Read()
+	if err != nil {
+		return err
+	}
+	if tok.Kind() != json.ArrayOpen {
+		return d.unexpectedTokenError(tok, p.path, "expected array open")
+	}
+
+	var v []string
+
+	for {
+		tok, err := d.Read()
+		if err != nil {
+			return err
+		}
+
+		switch tok.Kind() {
+		case json.ArrayClose:
+			if len(v) == 0 {
+				// Make sure we create an empty array for []
+				v = make([]string, 0)
+			}
+			dest.Set(reflect.ValueOf(v))
+			return nil
+
+		case json.String:
+			v = append(v, tok.ParsedString())
+
+			// case  json.Name: {
+			// 	v = append(v, tok.Name())
+			// }
+
+		default:
+			return d.unexpectedTokenError(tok, p.path, "expected string or arrayClose")
+		}
 	}
 	// }
 
@@ -816,7 +887,15 @@ func typeName(t reflect.Type) string {
 		}
 		v := reflect.New(t)
 		return fmt.Sprintf("%T", v.Elem().Interface())
+	case reflect.Map:
+		return "map[" + typeName(t.Key()) + "]" + typeName(t.Elem())
+	case reflect.Slice:
+		return "[]" + typeName(t.Elem())
 	default:
-		return t.Name()
+		s := t.Name()
+		if s != "" {
+			return s
+		}
+		return fmt.Sprintf("<%v:???>", t.Kind())
 	}
 }
