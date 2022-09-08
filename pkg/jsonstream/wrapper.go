@@ -412,14 +412,21 @@ func (r *typeRegistry) buildMapParser(t reflect.Type, path string) (valueParser,
 		return &mapStringStringParser{}, nil
 	}
 
-	keyParser, err := r.buildValueParser(t.Key(), path+"[@key]")
-	if err != nil {
-		return nil, err
-	}
 	valueParser, err := r.buildValueParser(t.Elem(), path+"->")
 	if err != nil {
 		return nil, err
 	}
+
+	if t.Key() == parserForString.reflectType {
+		klog.Infof("building semi-specialized map parser for map[string]???")
+		return &mapStringReflectParser{reflectType: t, valueParser: valueParser}, nil
+	}
+
+	keyParser, err := r.buildValueParser(t.Key(), path+"[@key]")
+	if err != nil {
+		return nil, err
+	}
+
 	return &mapParser{reflectType: t, keyParser: keyParser, valueParser: valueParser}, nil
 }
 
@@ -490,6 +497,58 @@ Loop:
 		}
 
 		dest.SetMapIndex(key, value)
+	}
+
+	return nil
+}
+
+type mapStringReflectParser struct {
+	reflectType reflect.Type
+	valueParser valueParser
+}
+
+func (p *mapStringReflectParser) unmarshalInto(dest reflect.Value, d decoder) error {
+	if dest.IsNil() {
+		dest.Set(reflect.MakeMap(p.reflectType))
+	}
+
+	tok, err := d.Read()
+	if err != nil {
+		return err
+	}
+	if tok.Kind() != json.ObjectOpen {
+		return d.unexpectedTokenError(tok, "todo", "expected object open")
+	}
+
+Loop:
+	for {
+		// Read field name.
+		tok, err := d.Read()
+		if err != nil {
+			return err
+		}
+		var key string
+		switch tok.Kind() {
+		default:
+			return d.unexpectedTokenError(tok, "todo", "expected object close or name")
+		case json.ObjectClose:
+			break Loop
+		case json.Name:
+			key = tok.Name()
+		}
+
+		// Check for duplicate field name.
+		// if dest.MapIndex(key) != zero {
+		// 	return d.newError(tok.Pos(), "duplicate map key %v", tok.RawString())
+		// }
+
+		// Read and unmarshal field value.
+		value := reflect.New(p.reflectType.Elem()).Elem()
+		if err := p.valueParser.unmarshalInto(value, d); err != nil {
+			return err
+		}
+
+		dest.SetMapIndex(reflect.ValueOf(key), value)
 	}
 
 	return nil
