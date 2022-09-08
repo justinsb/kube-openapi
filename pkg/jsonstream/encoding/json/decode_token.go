@@ -8,6 +8,8 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+
+	"k8s.io/kube-openapi/pkg/jsonstream/strs"
 )
 
 // Kind represents a token kind expressible in the JSON format.
@@ -98,7 +100,7 @@ func (t Token) Pos() int {
 func (t Token) Name() string {
 	if t.kind == Name {
 		// TODO: Try unsafe
-		return string(t.str)
+		return strs.UnsafeString(t.str)
 	}
 	panic(fmt.Sprintf("Token is not a Name: %v", t.RawString()))
 }
